@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icono: teléfono negro sobre círculo naranja, a juego con Radio y Música. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#FF6A1A"
+        android:pathData="M24,2a22,22 0,1 0,0.01 0z" />
+    <path
+        android:fillColor="#140A00"
+        android:pathData="M16,12h5l2.5,6.2 -3.1,1.9a13.7,13.7 0,0 0,7.5 7.5l1.9,-3.1 6.2,2.5v5a2.5,2.5 0,0 1,-2.5 2.5A20,20 0,0 1,13.5 14.5,2.5 2.5,0 0,1 16,12z" />
+</vector>
