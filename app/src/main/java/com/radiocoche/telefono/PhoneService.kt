@@ -24,8 +24,47 @@ class PhoneService : Service() {
     override fun onCreate() {
         super.onCreate()
         startForeground(1, notification())
+        com.radiocoche.telefono.ui.CarLights.start(applicationContext) { com.radiocoche.telefono.ui.DayNight.apply() }
+        com.radiocoche.telefono.ui.DayNight.apply()
+        overlay = CallOverlay(this)
         PhoneLink.start(this)
-        PhoneLink.onIncoming = { showCallScreen() }
+        PhoneLink.onStateChange = { s -> onCall(s) }
+    }
+
+    private lateinit var overlay: CallOverlay
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var silenced = false
+
+    /**
+     * Con llamada (sonando, marcando o en curso): se calla lo que suene (lo hace el launcher, que sabe qué fuente es)
+     * y se pone nuestra pantalla de llamada encima de todo. Se vuelve a poner encima poco después,
+     * por si la ventanita de fábrica aparece más tarde.
+     */
+    private fun onCall(s: com.radiocoche.telefono.bt.CallState) {
+        val inCall = s != com.radiocoche.telefono.bt.CallState.IDLE
+        if (inCall != silenced) {
+            silenced = inCall
+            runCatching {
+                sendBroadcast(Intent("com.radiocoche.launcher.SILENCE").setPackage("com.radiocoche.launcher").putExtra("on", inCall))
+            }
+        }
+        handler.removeCallbacksAndMessages(null)
+        if (!inCall) {
+            overlay.hide()
+            return
+        }
+        if (!overlay.canShow()) {
+            if (s == com.radiocoche.telefono.bt.CallState.INCOMING) showCallScreen()
+            return
+        }
+        overlay.show()
+        for (ms in longArrayOf(400, 1200, 2500)) handler.postDelayed({ if (PhoneLink.state != com.radiocoche.telefono.bt.CallState.IDLE) overlay.show() }, ms)
+    }
+
+    override fun onDestroy() {
+        handler.removeCallbacksAndMessages(null)
+        overlay.hide()
+        super.onDestroy()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

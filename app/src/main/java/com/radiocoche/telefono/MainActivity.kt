@@ -50,6 +50,7 @@ class PhoneUi(private val act: MainActivity) {
         if (!hasContactsPermission) return
         scope.launch {
             contacts = withContext(Dispatchers.IO) { Contacts.load(act) }
+            com.radiocoche.telefono.data.ContactCache.list = contacts
             loadedAt = System.currentTimeMillis()
         }
     }
@@ -64,11 +65,7 @@ class PhoneUi(private val act: MainActivity) {
     }
 
     /** Nombre del contacto que tiene ese número (para Recientes y llamadas entrantes). */
-    fun nameFor(number: String): String? {
-        val k = Contacts.digits(number).takeLast(9)
-        if (k.length < 6) return null
-        return contacts.firstOrNull { it.key == k }?.name
-    }
+    fun nameFor(number: String): String? = com.radiocoche.telefono.data.ContactCache.nameFor(number)
 
     fun reloadFromScreen() = act.reloadNow()
     fun askContacts() = act.askContacts()

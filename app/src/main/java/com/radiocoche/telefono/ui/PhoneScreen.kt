@@ -75,11 +75,8 @@ fun PhoneScreen(ui: PhoneUi) {
                 }
             }
         }
-        when (PhoneLink.state) {
-            CallState.INCOMING -> Incoming(ui)
-            CallState.ACTIVE, CallState.DIALING -> InCall(ui)
-            CallState.IDLE -> {}
-        }
+        // Sin permiso para ponerse encima de otras apps, la llamada se ve aquí dentro.
+        if (!ui.canOverlay) CallLayers()
         if (ui.toast.isNotEmpty()) {
             LaunchedEffect(ui.toast) {
                 delay(2200)
@@ -443,6 +440,16 @@ private fun ColumnScope.Empty(title: String, text: String, onClick: () -> Unit) 
 
 // ------------------------------------------------------------------ llamadas
 
+/** Pantalla de llamada (entrante o en curso) según el estado; vacía si no hay llamada. */
+@Composable
+fun BoxScope.CallLayers() {
+    when (PhoneLink.state) {
+        CallState.INCOMING -> Incoming()
+        CallState.ACTIVE, CallState.DIALING -> InCall()
+        CallState.IDLE -> {}
+    }
+}
+
 @Composable
 private fun BoxScope.CallLayer(content: @Composable ColumnScope.() -> Unit) {
     val p = Tema.p
@@ -454,10 +461,10 @@ private fun BoxScope.CallLayer(content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-private fun ColumnScope.Who(ui: PhoneUi) {
+private fun ColumnScope.Who() {
     val p = Tema.p
     val number = PhoneLink.number
-    val name = PhoneLink.name.takeIf { it.isNotBlank() && it != number } ?: ui.nameFor(number) ?: ""
+    val name = PhoneLink.name.takeIf { it.isNotBlank() && it != number } ?: com.radiocoche.telefono.data.ContactCache.nameFor(number) ?: ""
     val big = name.ifEmpty { Contacts.pretty(number).ifEmpty { "Número oculto" } }
     Column(
         Modifier.weight(1f),
@@ -471,7 +478,7 @@ private fun ColumnScope.Who(ui: PhoneUi) {
 }
 
 @Composable
-private fun BoxScope.InCall(ui: PhoneUi) {
+private fun BoxScope.InCall() {
     val p = Tema.p
     var now by remember { mutableLongStateOf(android.os.SystemClock.elapsedRealtime()) }
     LaunchedEffect(Unit) {
@@ -484,10 +491,10 @@ private fun BoxScope.InCall(ui: PhoneUi) {
         val since = PhoneLink.activeSince
         val status = if (PhoneLink.state == CallState.ACTIVE && since > 0) "EN LLAMADA · " + dur(((now - since) / 1000).toInt()) else "LLAMANDO…"
         Text(status, color = p.accent, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp)
-        Who(ui)
+        Who()
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             // Silenciar el micrófono, el teclado durante la llamada y pasar al móvil solo los hace la app de fábrica.
-            CarButton(Modifier.weight(1f).height(96.dp), BtnStyle(p.raised, p.border2, p.text), radius = 18.dp, onClick = { ui.openFactory() }) {
+            CarButton(Modifier.weight(1f).height(96.dp), BtnStyle(p.raised, p.border2, p.text), radius = 18.dp, onClick = { PhoneLink.openFactory() }) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     CarIcon(Ic.Keypad, 32.dp, p.text)
                     Text("Más opciones", color = p.text, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
@@ -504,11 +511,11 @@ private fun BoxScope.InCall(ui: PhoneUi) {
 }
 
 @Composable
-private fun BoxScope.Incoming(ui: PhoneUi) {
+private fun BoxScope.Incoming() {
     val p = Tema.p
     CallLayer {
         Text("LLAMADA ENTRANTE", color = p.accent, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp)
-        Who(ui)
+        Who()
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
             CarButton(Modifier.weight(1f).height(112.dp), BtnStyle(p.hang, null, Color.White), radius = 20.dp, onClick = { PhoneLink.hangUp() }) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {

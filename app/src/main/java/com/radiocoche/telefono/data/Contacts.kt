@@ -67,6 +67,17 @@ object Contacts {
     }
 }
 
+/** Últimos contactos leídos (para poner nombre a las llamadas también desde el servicio). */
+object ContactCache {
+    @Volatile var list: List<Contact> = emptyList()
+
+    fun nameFor(number: String): String? {
+        val k = Contacts.digits(number).takeLast(9)
+        if (k.length < 6) return null
+        return list.firstOrNull { it.key == k }?.name
+    }
+}
+
 /** Favoritos: se marcan con la estrella en esta app y se guardan por número (sobreviven a la resincronización). */
 object Favorites {
     private const val KEY = "favoritos"

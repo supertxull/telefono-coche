@@ -42,6 +42,9 @@ object PhoneLink {
     /** Se llama al empezar a sonar una llamada entrante. */
     var onIncoming: (() -> Unit)? = null
 
+    /** Se llama en cada cambio de estado de la llamada. */
+    var onStateChange: ((CallState) -> Unit)? = null
+
     private var app: Context? = null
     private var xt: XtCommands? = null
     private var started = false
@@ -126,6 +129,7 @@ object PhoneLink {
             callNumber = number
         }
         state = s
+        onStateChange?.invoke(s)
         if (s == CallState.INCOMING) onIncoming?.invoke()
         if (s == CallState.IDLE) {
             // Termina la llamada: se apunta en Recientes.
@@ -153,6 +157,7 @@ object PhoneLink {
         wasIncoming = false
         wasAnswered = false
         state = CallState.DIALING
+        onStateChange?.invoke(CallState.DIALING)
         val ok = xt?.call(clean) == true
         if (!ok) {
             // Sin el servicio del sistema: que lo haga la app de fábrica.
