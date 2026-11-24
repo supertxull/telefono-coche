@@ -8,6 +8,8 @@ import android.view.WindowManager
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -31,6 +33,19 @@ class CallOverlay(private val ctx: Context) {
     private var owner: OverlayOwner? = null
 
     val showing: Boolean get() = view != null
+
+    companion object {
+        /** Se ve nuestra pantalla de llamada encima de todo (si no, la app la dibuja dentro). */
+        var showingState by androidx.compose.runtime.mutableStateOf(false)
+        /** El usuario la quitó (Más opciones) hasta el próximo cambio de estado de la llamada. */
+        var userHidden = false
+        var onUserHide: (() -> Unit)? = null
+
+        fun hideByUser() {
+            userHidden = true
+            onUserHide?.invoke()
+        }
+    }
 
     fun canShow(): Boolean = Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(ctx)
 
@@ -56,6 +71,7 @@ class CallOverlay(private val ctx: Context) {
         if (runCatching { wm.addView(v, lp) }.isSuccess) {
             view = v
             owner = o
+            showingState = true
         } else {
             o.stop()
         }
@@ -66,6 +82,7 @@ class CallOverlay(private val ctx: Context) {
         view = null
         owner?.stop()
         owner = null
+        showingState = false
     }
 }
 

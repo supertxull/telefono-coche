@@ -76,7 +76,7 @@ fun PhoneScreen(ui: PhoneUi) {
             }
         }
         // Sin permiso para ponerse encima de otras apps, la llamada se ve aquí dentro.
-        if (!ui.canOverlay) CallLayers()
+        if (!ui.canOverlay || !com.radiocoche.telefono.CallOverlay.showingState) CallLayers()
         if (ui.toast.isNotEmpty()) {
             LaunchedEffect(ui.toast) {
                 delay(2200)
@@ -494,13 +494,19 @@ private fun BoxScope.InCall() {
         Who()
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             // Silenciar el micrófono, el teclado durante la llamada y pasar al móvil solo los hace la app de fábrica.
-            CarButton(Modifier.weight(1f).height(96.dp), BtnStyle(p.raised, p.border2, p.text), radius = 18.dp, onClick = { PhoneLink.openFactory() }) {
+            CarButton(Modifier.weight(1f).height(96.dp), BtnStyle(p.raised, p.border2, p.text), radius = 18.dp, onClick = {
+                com.radiocoche.telefono.CallOverlay.hideByUser()
+                PhoneLink.openFactory()
+            }) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     CarIcon(Ic.Keypad, 32.dp, p.text)
                     Text("Más opciones", color = p.text, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
-            CarButton(Modifier.weight(1.4f).height(96.dp), BtnStyle(p.hang, null, Color.White), radius = 18.dp, onClick = { PhoneLink.hangUp() }) {
+            CarButton(
+                Modifier.weight(1.4f).height(96.dp), BtnStyle(p.hang, null, Color.White), radius = 18.dp,
+                onHold = { PhoneLink.forceIdle() }, onClick = { PhoneLink.hangUp() },
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     CarIcon(Ic.HangUp, 36.dp, Color.White)
                     Text("Colgar", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
@@ -517,7 +523,10 @@ private fun BoxScope.Incoming() {
         Text("LLAMADA ENTRANTE", color = p.accent, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp)
         Who()
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            CarButton(Modifier.weight(1f).height(112.dp), BtnStyle(p.hang, null, Color.White), radius = 20.dp, onClick = { PhoneLink.hangUp() }) {
+            CarButton(
+                Modifier.weight(1f).height(112.dp), BtnStyle(p.hang, null, Color.White), radius = 20.dp,
+                onHold = { PhoneLink.forceIdle() }, onClick = { PhoneLink.hangUp() },
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     CarIcon(Ic.HangUp, 40.dp, Color.White)
                     Text("Rechazar", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)

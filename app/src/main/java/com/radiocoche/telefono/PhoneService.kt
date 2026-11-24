@@ -29,6 +29,15 @@ class PhoneService : Service() {
         overlay = CallOverlay(this)
         PhoneLink.start(this)
         PhoneLink.onStateChange = { s -> onCall(s) }
+        // Por si el servicio murió con una llamada: que no se quede nada silenciado.
+        if (PhoneLink.state == com.radiocoche.telefono.bt.CallState.IDLE) sendSilence(false) else onCall(PhoneLink.state)
+        CallOverlay.onUserHide = { overlay.hide() }
+    }
+
+    private fun sendSilence(on: Boolean) {
+        runCatching {
+            sendBroadcast(Intent("com.radiocoche.launcher.SILENCE").setPackage("com.radiocoche.launcher").putExtra("on", on))
+        }
     }
 
     private lateinit var overlay: CallOverlay
@@ -44,10 +53,9 @@ class PhoneService : Service() {
         val inCall = s != com.radiocoche.telefono.bt.CallState.IDLE
         if (inCall != silenced) {
             silenced = inCall
-            runCatching {
-                sendBroadcast(Intent("com.radiocoche.launcher.SILENCE").setPackage("com.radiocoche.launcher").putExtra("on", inCall))
-            }
+            sendSilence(inCall)
         }
+        CallOverlay.userHidden = false
         handler.removeCallbacksAndMessages(null)
         if (!inCall) {
             overlay.hide()
@@ -58,12 +66,18 @@ class PhoneService : Service() {
             return
         }
         overlay.show()
-        for (ms in longArrayOf(400, 1200, 2500)) handler.postDelayed({ if (PhoneLink.state != com.radiocoche.telefono.bt.CallState.IDLE) overlay.show() }, ms)
+        // Una vez más, por si la ventanita de fábrica aparece después.
+        handler.postDelayed({
+            if (PhoneLink.state != com.radiocoche.telefono.bt.CallState.IDLE && !CallOverlay.userHidden) overlay.show()
+        }, 1200)
     }
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
         overlay.hide()
+        if (silenced) sendSilence(false)
+        PhoneLink.onStateChange = null
+        CallOverlay.onUserHide = null
         super.onDestroy()
     }
 

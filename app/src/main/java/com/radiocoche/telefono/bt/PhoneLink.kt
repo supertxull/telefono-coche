@@ -81,6 +81,7 @@ object PhoneLink {
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
+            if (i.action != SEND_PAIR && i.action != BT_CONNECTED) lastUnitEvent = SystemClock.elapsedRealtime()
             when (i.action) {
                 SEND_CALL_INFO, SEND_CALL_INFO2 -> update(
                     when (i.getIntExtra("state", 0)) {
@@ -97,7 +98,11 @@ object PhoneLink {
                 "action.bt.AIOS_INCOMING_IDLE", "action.bt.AIOS_OUTGOING_IDLE" -> update(CallState.IDLE, null, null)
                 SEND_PAIR -> phoneName = i.getStringExtra("pairName")?.trim().orEmpty()
                 BT_CONNECTED -> send(Intent(GET_PAIR))
-                BT_DISCONNECTED -> phoneName = ""
+                BT_DISCONNECTED -> {
+                    phoneName = ""
+                    // Sin móvil no puede haber llamada.
+                    if (state != CallState.IDLE) update(CallState.IDLE, null, null)
+                }
             }
         }
     }
@@ -129,6 +134,8 @@ object PhoneLink {
             callNumber = number
         }
         state = s
+        watch.removeCallbacks(poll)
+        if (s != CallState.IDLE) watch.postDelayed(poll, 5000)
         onStateChange?.invoke(s)
         if (s == CallState.INCOMING) onIncoming?.invoke()
         if (s == CallState.IDLE) {
@@ -148,6 +155,7 @@ object PhoneLink {
 
     /** Llama a un número. [shownName] es lo que se ve mientras marca. */
     fun call(numberToCall: String, shownName: String) {
+        if (state != CallState.IDLE) return
         val clean = numberToCall.filter { it.isDigit() || it == '+' || it == '*' || it == '#' }
         if (clean.isEmpty()) return
         name = shownName
@@ -158,6 +166,9 @@ object PhoneLink {
         wasAnswered = false
         state = CallState.DIALING
         onStateChange?.invoke(CallState.DIALING)
+        // Si en 12 s la unidad no dice nada de esta llamada, no se hizo: se vuelve al reposo.
+        val t0 = SystemClock.elapsedRealtime()
+        watch.postDelayed({ if (state == CallState.DIALING && lastUnitEvent < t0) update(CallState.IDLE, null, null) }, 12_000)
         val ok = xt?.call(clean) == true
         if (!ok) {
             // Sin el servicio del sistema: que lo haga la app de fábrica.
@@ -179,6 +190,28 @@ object PhoneLink {
         if (xt?.hangUp() != true) openFactory()
         // Si la unidad no avisa, que la pantalla no se quede en llamada.
         if (state == CallState.DIALING) update(CallState.IDLE, null, null)
+        watch.postDelayed({
+            query()
+            watch.postDelayed({ if (state != CallState.IDLE) update(CallState.IDLE, null, null) }, 1500)
+        }, 3000)
+    }
+
+    /** Salida de emergencia (mantener Colgar): vuelve al reposo pase lo que pase. */
+    fun forceIdle() {
+        runCatching { xt?.hangUp() }
+        if (state != CallState.IDLE) update(CallState.IDLE, null, null)
+    }
+
+    private val watch = android.os.Handler(android.os.Looper.getMainLooper())
+    @Volatile private var lastUnitEvent = 0L
+
+    /** Mientras hay llamada se pregunta el estado cada 5 s (por si se pierde un aviso). */
+    private val poll = object : Runnable {
+        override fun run() {
+            if (state == CallState.IDLE) return
+            send(Intent(GET_CALL_INFO))
+            watch.postDelayed(this, 5000)
+        }
     }
 
     fun openFactory() {

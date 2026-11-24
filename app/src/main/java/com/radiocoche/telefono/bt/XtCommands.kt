@@ -38,6 +38,18 @@ class XtCommands(private val ctx: Context) {
             binder = null
             bound = false
         }
+
+        override fun onBindingDied(name: ComponentName?) {
+            binder = null
+            bound = false
+            runCatching { ctx.unbindService(this) }
+        }
+
+        override fun onNullBinding(name: ComponentName?) {
+            binder = null
+            bound = false
+            runCatching { ctx.unbindService(this) }
+        }
     }
 
     fun bind() {
@@ -63,11 +75,10 @@ class XtCommands(private val ctx: Context) {
     private fun send(code: Int, args: (Parcel) -> Unit = {}): Boolean {
         val b = binder
         if (b == null || !b.isBinderAlive) {
+            // Sin conexión no se deja nada en cola (se haría tarde): se intenta conectar para la próxima
+            // y esta vez se usa la app de fábrica.
             bind()
-            if (!bound) return false
-            // Se hará en cuanto conecte.
-            pending += { binder -> transact(binder, code, args) }
-            return true
+            return false
         }
         return transact(b, code, args)
     }
@@ -79,7 +90,7 @@ class XtCommands(private val ctx: Context) {
             data.writeInterfaceToken(DESCRIPTOR)
             args(data)
             b.transact(code, data, reply, 0)
-            runCatching { reply.readException() }
+            reply.readException() // si el servicio rechaza la orden, cuenta como fallo
             true
         } catch (e: Exception) {
             Log.w(TAG, "Orden $code fallida", e)
